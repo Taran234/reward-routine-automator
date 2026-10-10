@@ -46,8 +46,15 @@ plain `key: value` lines. Query parameters: `?run=1` starts the full routine
      `keepEarning`, `stillOpen`, `notes` (one sentence, plain), `finishedAt`
      (ISO timestamp).
    - `meta/latest` (set), the same fields plus `updatedAt`.
-6. **Notify.** Send one short push notification: points earned, balance, and
-   anything still open. Say plainly if the run failed.
+6. **Phone items.** Read the document `phone/<YYYY-MM-DD>` on the dashboard
+   with the ArtifactData tool (it may not exist yet, which means nothing is
+   ticked). The fields `mobileSearch`, `appCheckin` and `appRead` are the
+   things the user does on the phone. List the ones not ticked. Do not create
+   or change this document; the user ticks it on the dashboard.
+7. **Notify.** Send one short push notification: points earned, balance,
+   anything still open in the browser, and the phone items not yet ticked
+   ("Mobile searches, app check-in, read to earn"). Say plainly if the run
+   failed.
 
 Do not change extension settings, do not click anything on Bing or Rewards
 pages yourself, and do not run the routine more than once per invocation.
