@@ -1,0 +1,49 @@
+{
+  "manifest_version": 3,
+  "name": "Reward Routine Automator — Honeycomb",
+  "version": "7.0.0",
+  "description": "Froyo's routine, tuned for unattended daily runs: catch-up pass, a status page for Claude to read, and a pinned extension id.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAr8HdyuceBe8Q6Qf38tpsaHauIk/mhJo8Cf+TNU6jgbrv8oCyc4lWkgJ4GpFl/vFMyGB4gjvfTKHbj0KlnPKB5fhBpIHwC9fX6NASHctpfRFFC28riY4oix+vPGgeyugqwJe0D7t1zlSWI1JigvYgDKYGMmTBngT3GdM3tryAjFVh18rFaCQpqeke7GshgUI1jwDpYVymgqo+yEPHhqS02axsLfqbSdrX/FHTMIbyr2RRvCq+zBGF2+slbOVS+OhCdzPc9DORHwFavb9WmEC9/r+E+AAqe67Eg85c653OMu2e5OkFanmFYFGtXFp432SW4O3uzERBMucMlxxAReE/6wIDAQAB",
+  "permissions": [
+    "tabs",
+    "storage",
+    "scripting",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://*.bing.com/*",
+    "https://uselessfacts.jsph.pl/*",
+    "https://trends.google.com/*",
+    "https://en.wikipedia.org/*",
+    "https://picsum.photos/*",
+    "https://*.picsum.photos/*",
+    "https://*.thecatapi.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "Reward Routine Automator — Honeycomb",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["status.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
