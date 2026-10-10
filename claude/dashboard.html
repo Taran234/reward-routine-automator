@@ -1,0 +1,272 @@
+<title>Honeycomb Rewards</title>
+<style>
+  /* Layout: one status header, a 30-day bar chart of points earned, a run log.
+     Operated and scanned, not read: summary first, detail below. */
+  :root {
+    --bg: #f2f4f6;
+    --surface: #ffffff;
+    --ink: #17202a;
+    --muted: #5d6b79;
+    --line: #d9dfe5;
+    --accent: #b45f06;
+    --good: #1f7a46;
+    --warn: #a86a00;
+    --bad: #b3261e;
+    --bar: #3b5876;
+    --bar-today: #b45f06;
+    --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #11161c; --surface: #19212a; --ink: #e6ebf0; --muted: #93a1af; --line: #2b3641;
+      --accent: #f0a53c; --good: #5cc98a; --warn: #e8b64c; --bad: #f08a82;
+      --bar: #6f93b8; --bar-today: #f0a53c; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #11161c; --surface: #19212a; --ink: #e6ebf0; --muted: #93a1af; --line: #2b3641;
+    --accent: #f0a53c; --good: #5cc98a; --warn: #e8b64c; --bad: #f08a82;
+    --bar: #6f93b8; --bar-today: #f0a53c; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body);
+    margin: 0; padding-inline: 16px; padding-block: 20px 40px;
+  }
+  main { max-width: 880px; margin: 0 auto; display: grid; gap: 20px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 12px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+  .head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+  .sub { color: var(--muted); font-size: 13px; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat { min-width: 0; }
+  .stat .k { font-size: 12px; color: var(--muted); }
+  .stat .v { font: 600 22px/1.25 var(--font-mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .stat .n { font-size: 12px; color: var(--muted); }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; }
+  .pill.ok { color: var(--good); } .pill.partial { color: var(--warn); }
+  .pill.failed { color: var(--bad); } .pill.skipped { color: var(--muted); }
+  .banner { border-left: 3px solid var(--warn); padding: 8px 12px; background: var(--surface); }
+  .chart { width: 100%; height: auto; display: block; }
+  .chart text { fill: var(--muted); font: 10px var(--font-mono); }
+  .chart line { stroke: var(--line); }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td.num, th.num { text-align: right; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  td.notes { white-space: normal; min-width: 220px; color: var(--muted); }
+  .empty { color: var(--muted); padding: 8px 0; }
+  .phone-note { margin: 0 0 10px; }
+  .phone-list { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+  .phone-item { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; }
+  .phone-item input { width: 18px; height: 18px; accent-color: var(--accent); }
+  #p-status { font-size: 12px; color: var(--muted); margin-top: 8px; min-height: 18px; }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+
+<main>
+  <div class="head">
+    <h1>Honeycomb Rewards</h1>
+    <span class="sub" id="updated">Waiting for the first run report</span>
+  </div>
+
+  <div id="banner" class="banner" hidden></div>
+
+  <section class="panel" aria-labelledby="h-today">
+    <h2 id="h-today">Today</h2>
+    <div class="grid">
+      <div class="stat"><div class="k">Balance</div><div class="v" id="s-balance">–</div><div class="n" id="s-earned">&nbsp;</div></div>
+      <div class="stat"><div class="k">Search points</div><div class="v" id="s-search">–</div><div class="n">3 points per search</div></div>
+      <div class="stat"><div class="k">Daily set</div><div class="v" id="s-daily">–</div></div>
+      <div class="stat"><div class="k">Visual search</div><div class="v" id="s-visual">–</div></div>
+      <div class="stat"><div class="k">Keep earning</div><div class="v" id="s-keep">–</div></div>
+      <div class="stat"><div class="k">Level</div><div class="v" id="s-level">–</div><div class="n" id="s-next">&nbsp;</div></div>
+      <div class="stat"><div class="k">Last run</div><div class="v" id="s-status">–</div><div class="n" id="s-open">&nbsp;</div></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-phone">
+    <h2 id="h-phone">Phone items today</h2>
+    <p class="sub phone-note">Done on the phone, not by the extension. Tick each one as you finish it.</p>
+    <div class="phone-list">
+      <label class="phone-item"><input type="checkbox" id="p-mobileSearch"> Mobile searches</label>
+      <label class="phone-item"><input type="checkbox" id="p-appCheckin"> App check-in</label>
+      <label class="phone-item"><input type="checkbox" id="p-appRead"> Read to earn</label>
+    </div>
+    <div class="n" id="p-status">&nbsp;</div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-chart">
+    <h2 id="h-chart">Points earned per day, last 30 days</h2>
+    <div id="chart"><div class="empty">No runs recorded yet. The first report appears after the next scheduled run.</div></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-log">
+    <h2 id="h-log">Run log</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Date</th><th>Result</th><th class="num">Earned</th><th class="num">Balance</th>
+          <th>Search</th><th>Still open</th><th>Notes</th>
+        </tr></thead>
+        <tbody id="log"><tr><td colspan="7" class="empty">No runs recorded yet.</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var el = function (tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  var show = function (v) { return v == null || v === "" ? "–" : String(v); };
+  var runs = [];
+  var latest = null;
+
+  function renderToday() {
+    var l = latest || (runs[0] || null);
+    if (!l) return;
+    $("s-balance").textContent = show(l.balance != null ? l.balance : l.pointsEnd);
+    $("s-earned").textContent = l.earned != null ? "+" + l.earned + " today" : " ";
+    $("s-search").textContent = show(l.searchPoints);
+    $("s-daily").textContent = show(l.dailySet);
+    $("s-visual").textContent = show(l.visualSearch);
+    $("s-keep").textContent = show(l.keepEarning);
+    $("s-level").textContent = show(l.membershipLevel);
+    $("s-next").textContent = l.pointsToNextLevel
+      ? l.pointsToNextLevel + " points to " + (l.nextLevel || "next level")
+      : " ";
+    var st = $("s-status");
+    st.textContent = "";
+    var pill = el("span", "pill " + (l.status || "skipped"), l.status || "unknown");
+    st.appendChild(pill);
+    $("s-open").textContent = l.stillOpen && l.stillOpen !== "none" ? "Open: " + l.stillOpen : "Nothing open";
+    var when = l.updatedAt || l.finishedAt;
+    if (when) $("updated").textContent = "Updated " + new Date(when).toLocaleString();
+
+    var b = $("banner");
+    var problems = [];
+    if (l.status === "failed") problems.push("The last run failed. " + (l.notes || ""));
+    if (l.error) problems.push(String(l.error));
+    b.hidden = problems.length === 0;
+    b.textContent = problems.join(" ");
+  }
+
+  function renderChart() {
+    var host = $("chart");
+    var days = runs.slice(0, 30).slice().reverse();
+    var withEarned = days.filter(function (r) { return typeof r.earned === "number"; });
+    if (!withEarned.length) return;
+    var W = 760, H = 180, padL = 36, padB = 22, padT = 8, gap = 4;
+    var max = Math.max.apply(null, withEarned.map(function (r) { return r.earned; }).concat([10]));
+    max = Math.ceil(max / 10) * 10;
+    var bw = (W - padL) / days.length - gap;
+    var ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 " + W + " " + H);
+    svg.setAttribute("class", "chart");
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-label", "Bar chart of points earned per day");
+    function add(tag, attrs, text) {
+      var n = document.createElementNS(ns, tag);
+      Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+      if (text != null) n.textContent = text;
+      svg.appendChild(n);
+      return n;
+    }
+    var y = function (v) { return padT + (H - padT - padB) * (1 - v / max); };
+    [0, max / 2, max].forEach(function (t) {
+      add("line", { x1: padL, x2: W, y1: y(t), y2: y(t) });
+      add("text", { x: padL - 6, y: y(t) + 3, "text-anchor": "end" }, String(Math.round(t)));
+    });
+    days.forEach(function (r, i) {
+      var v = typeof r.earned === "number" ? r.earned : 0;
+      var x = padL + i * (bw + gap) + gap / 2;
+      var isLast = i === days.length - 1;
+      add("rect", {
+        x: x, y: y(v), width: Math.max(bw, 2), height: Math.max(y(0) - y(v), v > 0 ? 1 : 0),
+        fill: isLast ? "var(--bar-today)" : "var(--bar)"
+      });
+      if (i === 0 || i === days.length - 1 || i % 7 === 0) {
+        add("text", { x: x + bw / 2, y: H - 6, "text-anchor": "middle" }, String(r.date || "").slice(5));
+      }
+    });
+    host.textContent = "";
+    host.appendChild(svg);
+  }
+
+  function renderLog() {
+    var body = $("log");
+    if (!runs.length) return;
+    body.textContent = "";
+    runs.slice(0, 60).forEach(function (r) {
+      var tr = el("tr");
+      tr.appendChild(el("td", null, show(r.date)));
+      var tdS = el("td"); tdS.appendChild(el("span", "pill " + (r.status || "skipped"), r.status || "?")); tr.appendChild(tdS);
+      tr.appendChild(el("td", "num", r.earned != null ? "+" + r.earned : "–"));
+      tr.appendChild(el("td", "num", show(r.balance != null ? r.balance : r.pointsEnd)));
+      tr.appendChild(el("td", null, show(r.searchPoints)));
+      tr.appendChild(el("td", null, show(r.stillOpen)));
+      tr.appendChild(el("td", "notes", show(r.notes)));
+      body.appendChild(tr);
+    });
+  }
+
+  function renderAll() { renderToday(); renderChart(); renderLog(); }
+
+  window.claude && window.claude.use("db").then(function (db) {
+    if (!db) {
+      $("banner").hidden = false;
+      $("banner").textContent = "Run history is unavailable in this view. Open the page while signed in to see the log.";
+      return;
+    }
+    db.collection("runs").orderBy("date", "desc").limit(60).onSnapshot(function (snap) {
+      runs = snap.docs.map(function (d) { return d.data() || {}; });
+      renderAll();
+    }, function () {});
+    db.doc("meta/latest").onSnapshot(function (snap) {
+      latest = snap.exists ? snap.data() : null;
+      renderAll();
+    }, function () {});
+
+    // Phone items: one document per local day, written only on a tick.
+    var d = new Date();
+    var pad = function (n) { return (n < 10 ? "0" : "") + n; };
+    var today = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+    var phoneRef = db.doc("phone/" + today);
+    var keys = ["mobileSearch", "appCheckin", "appRead"];
+    var saving = false;
+    var pStatus = $("p-status");
+
+    phoneRef.onSnapshot(function (snap) {
+      var data = snap.exists ? snap.data() : {};
+      keys.forEach(function (k) { $("p-" + k).checked = !!data[k]; });
+      var left = keys.filter(function (k) { return !data[k]; }).length;
+      pStatus.textContent = left === 0 ? "All phone items done for today." : left + " of 3 still open.";
+    }, function () {
+      pStatus.textContent = "Phone items are unavailable in this view.";
+    });
+
+    keys.forEach(function (k) {
+      $("p-" + k).addEventListener("change", function () {
+        if (saving) { $("p-" + k).checked = !$("p-" + k).checked; return; }
+        var body = { date: today, updatedAt: new Date().toISOString() };
+        keys.forEach(function (key) { body[key] = $("p-" + key).checked; });
+        saving = true;
+        phoneRef.set(body).then(function () { saving = false; }, function () {
+          saving = false;
+          $("p-" + k).checked = !$("p-" + k).checked;
+          pStatus.textContent = "Could not save. Only the owner or a contributor can tick these.";
+        });
+      });
+    });
+  }).catch(function () {});
+})();
+</script>

@@ -38,6 +38,10 @@ tasks/
 !src-donut/**
 !src-eclair/**
 !src-froyo/**
+# Honeycomb is Froyo's tree plus the Claude dashboard files; the *.html rule
+# above would otherwise drop popup.html, status.html and dashboard.html.
+!src-honeycomb/**
+!claude/**
 
 # --- src-gingerbread is a Vite/TypeScript build. Commit its SOURCE (the
 # broad tests/ package.json *.html rules above would otherwise swallow it),
