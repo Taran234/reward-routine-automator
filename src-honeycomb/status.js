@@ -72,6 +72,10 @@ async function snapshot() {
     lines.push(line("readyToClaim", stats.readyToClaim));
     lines.push(line("dailyStreak", stats.dailyStreak));
     lines.push(line("stampBonus", stats.stampBonus));
+    const m = stats.membership;
+    lines.push(line("membershipLevel", m && m.level));
+    lines.push(line("nextLevel", m && m.nextLevel));
+    lines.push(line("pointsToNextLevel", m && m.pointsToNext));
     lines.push(line("searchPoints", stats.searchPoints));
     const act = stats.activities || {};
     lines.push(line("dailySet", act.dailySet));

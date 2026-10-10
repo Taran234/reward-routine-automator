@@ -585,8 +585,29 @@ export function readRewardsStats(timeoutMs, waitMode) {
       pressButton(toggle);
     }
 
+    // The membership header (dashboard): "Member" badge, "Progress towards
+    // Silver • Points to go: 203". Matched on the visible sentence, so it
+    // survives a class-name reshuffle; each half answers on its own, and a
+    // page without the header yields null rather than an object of nulls.
+    function membershipProgress() {
+      const body = textOf(document.body || document.documentElement);
+      const toward = body.match(/progress towards\s+([A-Za-z]+)/i);
+      const toGo = body.match(/points to go:?\s*([\d,]+)/i);
+      const medal = Array.from(document.querySelectorAll("img[alt]")).find(el =>
+        /member/i.test(el.getAttribute("alt") || "")
+      );
+      const level = medal ? (medal.getAttribute("alt") || "").trim() || null : null;
+      if (!toward && !toGo && !level) return null;
+      return {
+        level,
+        nextLevel: toward ? toward[1] : null,
+        pointsToNext: toGo ? toGo[1] : null
+      };
+    }
+
     function readAll() {
       return {
+        membership: membershipProgress(),
         // The card first (old design); the header pill answers the redesign
         // (the Available points card is gone — headerPointsBalance).
         availablePoints: cardValue("available points") || headerPointsBalance(),

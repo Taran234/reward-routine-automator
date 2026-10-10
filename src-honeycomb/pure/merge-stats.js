@@ -51,6 +51,9 @@ export function mergeStats(dashboard, earn) {
     readyToClaim: firstNonNull("readyToClaim", a, b),
     dailyStreak: firstNonNull("dailyStreak", a, b),
     stampBonus: pickStampBonus(),
+    // Membership level and points to the next level — an object, so
+    // firstNonNull carries it whole from whichever page answered.
+    membership: firstNonNull("membership", a, b),
     // The search-points cap: both pages can carry the Today's points card,
     // and both answers are today's truth — whichever page's breakdown
     // answered wins, a miss never erasing the other page's find.

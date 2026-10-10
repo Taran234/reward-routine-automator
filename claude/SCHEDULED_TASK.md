@@ -43,7 +43,8 @@ plain `key: value` lines. Query parameters: `?run=1` starts the full routine
    ArtifactData tool on `<ARTIFACT_URL>`:
    - `runs/<YYYY-MM-DD>` (set), fields: `date`, `status`, `earned`, `balance`,
      `pointsStart`, `pointsEnd`, `searchPoints`, `dailySet`, `visualSearch`,
-     `keepEarning`, `stillOpen`, `notes` (one sentence, plain), `finishedAt`
+     `keepEarning`, `membershipLevel`, `nextLevel`, `pointsToNextLevel`
+     (from the status page's lines of the same name), `stillOpen`, `notes` (one sentence, plain), `finishedAt`
      (ISO timestamp).
    - `meta/latest` (set), the same fields plus `updatedAt`.
 6. **Phone items.** Read the document `phone/<YYYY-MM-DD>` on the dashboard
