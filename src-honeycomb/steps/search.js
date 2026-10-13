@@ -17,7 +17,14 @@ import {
   closeCapturedTabs
 } from "../lib/tabs.js";
 import { setLastTabAction } from "../lib/log.js";
-import { rightSizedCount, judgeSettlement, progressPair, POINTS_PER_SEARCH } from "../pure/verdicts.js";
+import {
+  rightSizedCount,
+  judgeSettlement,
+  progressPair,
+  pointsBalance,
+  statsAreCurrent,
+  POINTS_PER_SEARCH
+} from "../pure/verdicts.js";
 import { awaitedQuery, startQueryPrefetch } from "../queries/chain.js";
 import { performHumanTypedSearchOnBing } from "../injections/typed-search.js";
 import { refreshStats } from "./reads.js";
@@ -60,6 +67,7 @@ export async function startSearchBatch() {
       : null;
 
   let sized = { count: perBatch, pair: null, trimmed: false };
+  let startBalance = null;
   if (settings.rightSizeSearchBatch) {
     if (!continuingRun) {
       await refreshStats();
@@ -71,9 +79,20 @@ export async function startSearchBatch() {
     }
     const { [LAST_STATS]: stats } = await chrome.storage.local.get(LAST_STATS);
     sized = rightSizedCount(stats, perBatch);
+    startBalance = statsAreCurrent(stats) ? pointsBalance(stats) : null;
   }
 
-  const { count: batchCount, pair, trimmed } = sized;
+  const { count: batchCount, pair, trimmed, capped, probe } = sized;
+  if (capped) {
+    // At the cap: a search would earn nothing. Say so and let the routine
+    // carry on with its remaining steps, exactly as a finished batch would.
+    await setLastTabAction(`Search — ${pair[0]}/${pair[1]} points, already at the cap`, true);
+    await runPendingStartupSteps();
+    return;
+  }
+  if (probe) {
+    await setLastTabAction(`Search — cap unreadable, probing ${batchCount} searches first`, null);
+  }
   if (trimmed) {
     // The search step owns no Activity row, so its news rides the Tabs row —
     // the same row its skip note lands in.
@@ -104,8 +123,8 @@ export async function startSearchBatch() {
   await updateRunState(state => {
     state.activity = null;
     state.rightSizeRun =
-      settings.rightSizeSearchBatch && pair
-        ? { round: continuingRun ? continuingRun.round : 1, pair }
+      settings.rightSizeSearchBatch && (pair || probe)
+        ? { round: continuingRun ? continuingRun.round : 1, pair, balance: startBalance }
         : null;
     state.batch = {
       runId: (previous.batch ? previous.batch.runId : 0) + 1,
@@ -236,7 +255,7 @@ async function settleRightSizedRun() {
 
   const state = await readRunState();
   const run = state.rightSizeRun;
-  if (!run || !Array.isArray(run.pair)) return "done";
+  if (!run) return "done";
 
   const myEpoch = await currentStopEpoch();
 
@@ -254,7 +273,8 @@ async function settleRightSizedRun() {
     s.rightSizeRun = null;
   });
 
-  const decision = judgeSettlement(run, nowPair, RIGHT_SIZE_MAX_ROUNDS, POINTS_PER_SEARCH);
+  const nowBalance = statsAreCurrent(stats) ? pointsBalance(stats) : null;
+  const decision = judgeSettlement(run, nowPair, RIGHT_SIZE_MAX_ROUNDS, POINTS_PER_SEARCH, nowBalance);
   if (decision.note) await setLastTabAction(decision.note, decision.ok);
   if (decision.verdict !== "continue") return "done";
 
@@ -264,7 +284,7 @@ async function settleRightSizedRun() {
   // freshAt tells startSearchBatch its read is seconds old.
   await closeCapturedTabs("search", "closeTabsAfterSearch");
   await updateRunState(s => {
-    s.rightSizeRun = { round: run.round + 1, pair: nowPair, freshAt: Date.now() };
+    s.rightSizeRun = { round: run.round + 1, pair: nowPair, balance: nowBalance, freshAt: Date.now() };
   });
   await startSearchBatch();
   return "continue";

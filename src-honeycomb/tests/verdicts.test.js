@@ -87,9 +87,9 @@ test("rightSizedCount trims to the day's remainder from today's read", () => {
   });
 });
 
-test("rightSizedCount runs the full batch on every unknown", () => {
+test("rightSizedCount probes with a short batch on every unknown", () => {
   const now = new Date(2026, 8, 6, 12, 0, 0);
-  const fallback = { count: 30, pair: null, trimmed: false };
+  const fallback = { count: 6, pair: null, trimmed: false, probe: true };
   // No read at all.
   assert.deepEqual(rightSizedCount(null, 30, now), fallback);
   // Yesterday's read.
@@ -99,11 +99,10 @@ test("rightSizedCount runs the full batch on every unknown", () => {
   );
   // No pair in the value.
   assert.deepEqual(rightSizedCount({ at: now.getTime(), searchPoints: "" }, 30, now), fallback);
-  // The cap is already met — a manual run must always do the thing it was
-  // pressed for.
+  // The cap is already met — nothing a search could earn, so none run.
   assert.deepEqual(
     rightSizedCount({ at: now.getTime(), searchPoints: "60/60" }, 30, now),
-    fallback
+    { count: 0, pair: [60, 60], trimmed: false, capped: true }
   );
   // The remainder needs more than the configured batch.
   assert.deepEqual(
@@ -141,6 +140,27 @@ test("judgeSettlement continues while short but moving, with the count", () => {
   assert.equal(decision.more, 2); // 6 points / 3 per search
   assert.equal(decision.ok, null);
   assert.match(decision.note, /2 more searches/);
+});
+
+test("judgeSettlement judges a probe run by the balance", () => {
+  const run = { round: 1, pair: null, balance: 7000 };
+  // Balance moved, cap still unreadable: probe again.
+  const more = judgeSettlement(run, null, 3, 3, 7018);
+  assert.equal(more.verdict, "continue");
+  assert.equal(more.more, 6);
+  // Balance did not move: the cap is reached, stop.
+  const stuck = judgeSettlement(run, null, 3, 3, 7000);
+  assert.equal(stuck.verdict, "done");
+  assert.equal(stuck.reason, "notCounting");
+  // Cap readable now and met.
+  assert.equal(judgeSettlement(run, [60, 60], 3, 3, 7018).reason, "cap");
+  // Balance unreadable: nothing to judge, stop.
+  assert.deepEqual(judgeSettlement(run, null, 3, 3, null), { verdict: "done" });
+  // Bounded at five probes even while it keeps moving.
+  assert.equal(
+    judgeSettlement({ round: 5, pair: null, balance: 7000 }, null, 3, 3, 7018).reason,
+    "maxRounds"
+  );
 });
 
 test("judgeSettlement says nothing more when the re-read is unreadable", () => {

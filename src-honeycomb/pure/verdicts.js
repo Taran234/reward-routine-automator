@@ -140,6 +140,18 @@ export function nudgeMessage(left) {
 // 3 points x 20 searches = the "60/60" cap the Today's-points card shows).
 export const POINTS_PER_SEARCH = 3;
 
+// When the cap can't be read, searches run in probes of this size and the
+// balance is re-read between them; at most PROBE_MAX_ROUNDS probes per run.
+export const UNKNOWN_PROBE = 6;
+export const PROBE_MAX_ROUNDS = 5;
+
+// The available-points balance as a number ("7,576" -> 7576), null if unread.
+export function pointsBalance(stats) {
+  const raw = stats && stats.availablePoints != null ? String(stats.availablePoints) : "";
+  const digits = raw.replace(/[^\d]/g, "");
+  return digits ? Number(digits) : null;
+}
+
 // The batch the day actually needs: with right-sizing on and today's read
 // showing a partial search-points pair ("40/60"), only the remainder is
 // searched — ceil(20 / 3) = 7 searches reach the cap; the configured batch
@@ -154,14 +166,18 @@ export const POINTS_PER_SEARCH = 3;
 //
 // `stats` may be null or stale; the today-gate is part of the verdict.
 export function rightSizedCount(stats, perBatch, now = new Date(), pointsPerSearch = POINTS_PER_SEARCH) {
-  const fallback = { count: perBatch, pair: null, trimmed: false };
+  // An unknown cap used to run the whole configured batch, which is how the
+  // search kept going past the cap. Now it runs a short probe and lets the
+  // balance decide (judgeSettlement) whether another probe is worth it.
+  const fallback = { count: Math.min(perBatch, UNKNOWN_PROBE), pair: null, trimmed: false, probe: true };
   if (!statsAreCurrent(stats, now)) return fallback;
 
   const pair = progressPair(stats.searchPoints);
   if (!pair) return fallback;
 
   const remaining = pair[1] - pair[0];
-  if (remaining <= 0) return fallback;
+  // The cap is met: nothing a search could earn.
+  if (remaining <= 0) return { count: 0, pair, trimmed: false, capped: true };
 
   const needed = Math.ceil(remaining / pointsPerSearch);
   if (needed >= perBatch) return { count: perBatch, pair, trimmed: false };
@@ -180,7 +196,42 @@ export function rightSizedCount(stats, perBatch, now = new Date(), pointsPerSear
 //   "continue" (with .more)      short of the cap but the points moved —
 //                                 run what's still needed
 //   "done" bare                  the read is unreadable now — nothing to judge
-export function judgeSettlement(run, nowPair, maxRounds = 3, pointsPerSearch = POINTS_PER_SEARCH) {
+export function judgeSettlement(run, nowPair, maxRounds = 3, pointsPerSearch = POINTS_PER_SEARCH, nowBalance = null) {
+  // A probe run started without a readable cap: the balance is the judge.
+  if (!Array.isArray(run.pair)) {
+    if (nowPair && nowPair[0] >= nowPair[1]) {
+      return {
+        verdict: "done",
+        reason: "cap",
+        note: `Search — ${nowPair[0]}/${nowPair[1]} points, the cap is reached`,
+        ok: true
+      };
+    }
+    if (nowBalance == null || run.balance == null) return { verdict: "done" };
+    if (nowBalance <= run.balance) {
+      return {
+        verdict: "done",
+        reason: "notCounting",
+        note: "Search — the balance stopped moving, the cap is probably reached",
+        ok: null
+      };
+    }
+    if (run.round >= PROBE_MAX_ROUNDS) {
+      return {
+        verdict: "done",
+        reason: "maxRounds",
+        note: `Search — stopped after ${run.round} probe batches`,
+        ok: null
+      };
+    }
+    return {
+      verdict: "continue",
+      more: UNKNOWN_PROBE,
+      note: `Search — +${nowBalance - run.balance} points, running another probe`,
+      ok: null
+    };
+  }
+
   if (!nowPair) return { verdict: "done" };
 
   if (nowPair[0] >= nowPair[1]) {
