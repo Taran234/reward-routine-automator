@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Reward Routine Automator — Froyo</title>
+    <title>Reward Routine Automator — Honeycomb</title>
     <link rel="stylesheet" href="popup.css" />
     <!-- Deliberately not deferred: it sizes the window before the first paint. -->
     <script src="popup-boot.js"></script>
@@ -87,6 +87,23 @@
             <path d="M3 3v5h5" />
           </svg>
         </button>
+        <!-- Honeycomb: the full-page dashboard (history chart, phone items,
+             run controls) in its own tab. -->
+        <a
+          class="topbar-btn"
+          id="dashboardBtn"
+          href="dashboard.html"
+          target="_blank"
+          title="Open the dashboard"
+          aria-label="Open the dashboard"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="9" rx="1" />
+            <rect x="14" y="3" width="7" height="5" rx="1" />
+            <rect x="14" y="12" width="7" height="9" rx="1" />
+            <rect x="3" y="16" width="7" height="5" rx="1" />
+          </svg>
+        </a>
         <!-- Opens the Settings view: the startup plan, the tabs and the
              former Advanced panel live there, out of the way of the tabbed
              main views. -->

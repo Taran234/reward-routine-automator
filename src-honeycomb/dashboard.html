@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Honeycomb Dashboard</title>
+  <style>
+    /* Layout: a status header, today's progress tiles, a 30-day chart, the
+       phone checklist and the activity log. Read at a glance, operated rarely. */
+    :root {
+      --bg: #f2f4f6; --surface: #ffffff; --ink: #17202a; --muted: #5d6b79;
+      --line: #d9dfe5; --accent: #b45f06; --good: #1f7a46; --warn: #a86a00;
+      --bad: #b3261e; --bar: #3b5876; --bar-today: #b45f06; --track: #e3e8ed;
+      --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: ui-monospace, Menlo, Consolas, monospace;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #11161c; --surface: #19212a; --ink: #e6ebf0; --muted: #93a1af;
+        --line: #2b3641; --accent: #f0a53c; --good: #5cc98a; --warn: #e8b64c;
+        --bad: #f08a82; --bar: #6f93b8; --bar-today: #f0a53c; --track: #2b3641;
+        color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font);
+           padding-inline: 16px; padding-block: 20px 40px; }
+    main { max-width: 920px; margin: 0 auto; display: grid; gap: 16px; }
+    h1 { font-size: 20px; margin: 0; letter-spacing: -0.01em; }
+    h2 { font-size: 12px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.08em;
+         color: var(--muted); font-weight: 600; }
+    .head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+    .sub { color: var(--muted); font-size: 13px; }
+    .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px; min-width: 0; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+    .stat { min-width: 0; }
+    .k { font-size: 12px; color: var(--muted); }
+    .v { font: 600 22px/1.25 var(--mono); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+    .n { font-size: 12px; color: var(--muted); min-height: 18px; }
+    .bar { height: 8px; background: var(--track); border-radius: 4px; overflow: hidden; margin: 6px 0 4px; }
+    .bar > i { display: block; height: 100%; background: var(--accent); width: 0; }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    button { font: inherit; background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+             border-radius: 6px; padding: 7px 14px; cursor: pointer; }
+    button.primary { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+    button:disabled { opacity: 0.55; cursor: default; }
+    button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; }
+    .pill.running { color: var(--accent); } .pill.idle { color: var(--muted); }
+    .pill.ok { color: var(--good); } .pill.bad { color: var(--bad); }
+    .phone { display: flex; flex-wrap: wrap; gap: 10px 20px; }
+    .phone label { display: inline-flex; align-items: center; gap: 8px; min-height: 32px; cursor: pointer; }
+    .phone input { width: 18px; height: 18px; accent-color: var(--accent); }
+    .chart { width: 100%; height: auto; display: block; }
+    .chart text { fill: var(--muted); font: 10px var(--mono); }
+    .chart line { stroke: var(--line); }
+    dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; }
+    dt { color: var(--muted); } dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+    dd.bad { color: var(--bad); }
+    .empty { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="head">
+      <h1>Honeycomb Dashboard</h1>
+      <span class="sub" id="updated">Waiting for the first stats read</span>
+    </div>
+
+    <section class="panel" aria-labelledby="h-now">
+      <h2 id="h-now">Today</h2>
+      <div class="grid">
+        <div class="stat"><div class="k">Balance</div><div class="v" id="balance">–</div><div class="n" id="earned">&nbsp;</div></div>
+        <div class="stat"><div class="k">Level</div><div class="v" id="level">–</div><div class="n" id="toNext">&nbsp;</div></div>
+        <div class="stat"><div class="k">Ready to claim</div><div class="v" id="claim">–</div></div>
+        <div class="stat"><div class="k">Daily streak</div><div class="v" id="streak">–</div></div>
+        <div class="stat"><div class="k">Stamp bonus</div><div class="v" id="stamps">–</div></div>
+        <div class="stat"><div class="k">Trend, 7 days</div><div class="v" id="trend">–</div><div class="n">points per day</div></div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-prog">
+      <h2 id="h-prog">Progress and what is left</h2>
+      <div class="grid">
+        <div class="stat"><div class="k">Search points</div><div class="v" id="search">–</div>
+          <div class="bar"><i id="searchBar"></i></div><div class="n" id="searchLeft">&nbsp;</div></div>
+        <div class="stat"><div class="k">Daily set</div><div class="v" id="dailySet">–</div></div>
+        <div class="stat"><div class="k">Visual search</div><div class="v" id="visual">–</div></div>
+        <div class="stat"><div class="k">Bing app streak</div><div class="v" id="app">–</div></div>
+        <div class="stat"><div class="k">Keep earning</div><div class="v" id="keep">–</div></div>
+        <div class="stat"><div class="k">Still open</div><div class="v" id="open">–</div></div>
+      </div>
+      <div class="stat" style="margin-top:14px">
+        <div class="k">Goal</div><div class="v" id="goal">–</div>
+        <div class="bar"><i id="goalBar"></i></div><div class="n" id="goalNote">&nbsp;</div>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-run">
+      <h2 id="h-run">Routine</h2>
+      <div class="row" style="align-items:center; margin-bottom:10px">
+        <span class="pill idle" id="state">idle</span>
+        <span class="sub" id="activity"></span>
+      </div>
+      <div class="row">
+        <button class="primary" id="runBtn">Run the routine</button>
+        <button id="refreshBtn">Refresh stats</button>
+        <button id="stopBtn">Stop</button>
+      </div>
+      <dl style="margin-top:14px">
+        <dt>Routine today</dt><dd id="routineDay">–</dd>
+        <dt>Schedule</dt><dd id="schedule">–</dd>
+        <dt>Stats</dt><dd id="logStats">–</dd>
+        <dt>Rewards</dt><dd id="logRewards">–</dd>
+        <dt>Tabs</dt><dd id="logTabs">–</dd>
+        <dt>Image search</dt><dd id="logImage">–</dd>
+        <dt>Redeem</dt><dd id="logRedeem">–</dd>
+        <dt>Last query</dt><dd id="logQuery">–</dd>
+      </dl>
+    </section>
+
+    <section class="panel" aria-labelledby="h-phone">
+      <h2 id="h-phone">Phone items today</h2>
+      <p class="sub" style="margin:0 0 8px">Done on the phone, not by the extension. Tick each as you finish it.</p>
+      <div class="phone">
+        <label><input type="checkbox" data-key="mobileSearch"> Mobile searches</label>
+        <label><input type="checkbox" data-key="appCheckin"> App check-in</label>
+        <label><input type="checkbox" data-key="appRead"> Read to earn</label>
+      </div>
+      <div class="n" id="phoneNote">&nbsp;</div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-chart">
+      <h2 id="h-chart">Points earned per day</h2>
+      <div id="chart" class="empty">No history yet. Each stats read adds a day.</div>
+    </section>
+  </main>
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>

@@ -11,6 +11,7 @@
 // so a consumer never has to parse the raw JSON below it.
 
 import { localDayKey } from "./lib/day.js";
+import { getSettings } from "./lib/settings.js";
 import { earnedToday, trendPerDay } from "./pure/history.js";
 import { dayRemainder } from "./pure/verdicts.js";
 
@@ -47,7 +48,7 @@ function describeRunState(runState) {
 
 async function snapshot() {
   const local = await chrome.storage.local.get(null);
-  const { settings } = await chrome.storage.sync.get("settings");
+  const settings = await getSettings();
   const now = new Date();
   const today = localDayKey(now);
   const stats = local.lastStats || null;
