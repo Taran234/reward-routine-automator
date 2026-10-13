@@ -116,6 +116,8 @@ export async function refreshStats() {
   // redeem watch's own-tab tail: the shared capture list is reset by every
   // new run, so two overlapping bursts used to sweep each other's tabs.
   const ownTabIds = [];
+  // Injection failures with the tab's URL, surfaced in the Activity row.
+  const readErrors = [];
 
   // One page of the two-page read. Returns { tabId, stats } — stats may be
   // null when the page never answered — or null outright when the run was
@@ -207,7 +209,20 @@ export async function refreshStats() {
       });
       return { tabId: tab.id, stats: (injection && injection.result) || null };
     } catch (e) {
-      console.warn(`Stats: ${label} injection ended early:`, e);
+      // Honeycomb: name the URL the tab was actually on. "The extensions
+      // gallery cannot be scripted" means the read tab was not on the Rewards
+      // page at all, and without the URL the Activity row cannot say why.
+      let at = "unknown url";
+      try {
+        const current = await chrome.tabs.get(tab.id);
+        at = current.url || current.pendingUrl || "blank";
+      } catch (_) {
+        at = "tab closed";
+      }
+      console.warn(`Stats: ${label} injection ended early (tab at ${at}):`, e);
+      readErrors.push(
+        `${label} read failed: ${String(e && e.message ? e.message : e)} [tab at ${at}]`
+      );
       return { tabId: tab.id, stats: null };
     } finally {
       clearInterval(watcher);
@@ -360,6 +375,7 @@ export async function refreshStats() {
     const dumps = [];
     if (dashboardStats == null) problems.push("the dashboard page did not answer");
     if (earnStats == null) problems.push("the Earn page did not answer");
+    for (const message of readErrors) problems.push(message);
 
     if (
       earnRead &&
