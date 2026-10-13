@@ -25,6 +25,11 @@ document `meta/latest`.
 
 ## 3. Create the scheduled task
 
+The task reads the Rewards pages itself through Claude in Chrome, so use
+**Google Chrome** for this part, signed in to rewards.bing.com. (Edge refuses
+to let extensions read those pages, which is why the extension's own stats tab
+stays blank there; the Claude task is unaffected.)
+
 Ask Claude to create a daily scheduled task from `claude/SCHEDULED_TASK.md`
 (09:20 local), with `<ARTIFACT_URL>` replaced by the link from step 2. The
 laptop must be awake with Chrome and Claude open at that time.

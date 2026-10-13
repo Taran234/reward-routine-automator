@@ -81,6 +81,9 @@
       <div class="stat"><div class="k">Search points</div><div class="v" id="s-search">–</div><div class="n">3 points per search</div></div>
       <div class="stat"><div class="k">Daily set</div><div class="v" id="s-daily">–</div></div>
       <div class="stat"><div class="k">Visual search</div><div class="v" id="s-visual">–</div></div>
+      <div class="stat"><div class="k">Mobile search</div><div class="v" id="s-mobile">–</div></div>
+      <div class="stat"><div class="k">Possible today</div><div class="v" id="s-possible">–</div><div class="n">estimate</div></div>
+      <div class="stat"><div class="k">Ready to claim</div><div class="v" id="s-claim">–</div></div>
       <div class="stat"><div class="k">Keep earning</div><div class="v" id="s-keep">–</div></div>
       <div class="stat"><div class="k">Level</div><div class="v" id="s-level">–</div><div class="n" id="s-next">&nbsp;</div></div>
       <div class="stat"><div class="k">Last run</div><div class="v" id="s-status">–</div><div class="n" id="s-open">&nbsp;</div></div>
@@ -139,6 +142,9 @@
     $("s-daily").textContent = show(l.dailySet);
     $("s-visual").textContent = show(l.visualSearch);
     $("s-keep").textContent = show(l.keepEarning);
+    $("s-mobile").textContent = show(l.mobileSearch);
+    $("s-possible").textContent = show(l.possibleToday);
+    $("s-claim").textContent = show(l.readyToClaim);
     $("s-level").textContent = show(l.membershipLevel);
     $("s-next").textContent = l.pointsToNextLevel
       ? l.pointsToNextLevel + " points to " + (l.nextLevel || "next level")
