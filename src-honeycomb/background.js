@@ -90,16 +90,25 @@ let scheduledRunning = false;
 // nothing runs just because Chrome was opened.
 const LATE_START_GRACE_MIN = 20;
 
-// One-time settings migration: the launch-time run is off for good, even where
-// an older stored settings blob still says on.
+// One-time settings migration: manual-only. The launch run, the schedule, the
+// catch-up pass and the read-on-popup-open are all off for good, even where an
+// older stored settings blob still says on. The Run button is the only start.
 async function applyMigrations() {
-  const { migrationNoLaunchRun } = await chrome.storage.local.get("migrationNoLaunchRun");
-  if (migrationNoLaunchRun) return;
+  const { migrationManualOnly } = await chrome.storage.local.get("migrationManualOnly");
+  if (migrationManualOnly) return;
   const { settings } = await chrome.storage.sync.get("settings");
   await chrome.storage.sync.set({
-    settings: { ...DEFAULT_SETTINGS, ...(settings || {}), startupEnabled: false }
+    settings: {
+      ...DEFAULT_SETTINGS,
+      ...(settings || {}),
+      startupEnabled: false,
+      scheduledRunEnabled: false,
+      catchUpPassEnabled: false,
+      eveningNudgeEnabled: false,
+      refreshStatsOnPopupOpen: false
+    }
   });
-  await chrome.storage.local.set({ migrationNoLaunchRun: true });
+  await chrome.storage.local.set({ migrationManualOnly: true });
 }
 
 chrome.runtime.onInstalled.addListener(async () => {

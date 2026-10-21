@@ -16,9 +16,10 @@ to let extensions read the Rewards pages, so the stats stay blank there.
 
 ## What it does by default
 
-- Runs the routine on browser start and at 09:00 daily.
-- At 20:30 re-runs the routine if anything is still open (catch-up pass).
-- No confirm dialog; every step skips what is already done.
+Nothing starts by itself. The routine runs only when you press **Run the
+routine** (popup or dashboard). Opening the browser, opening the popup and
+Refresh stats never start it; the schedule and catch-up pass are off (they can
+be switched on in Settings). Every step still skips what is already done.
 
 ## Where to see progress
 

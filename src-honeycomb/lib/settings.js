@@ -6,9 +6,10 @@
 // worker must keep treating them as opaque booleans/strings it stores but
 // never interprets.
 export const DEFAULT_SETTINGS = {
-  // Honeycomb defaults: the routine runs on its schedule only. Opening the
-  // browser starts nothing (the user turned the launch run off); the Run
-  // button on the popup and dashboard is always there.
+  // Honeycomb defaults: nothing starts by itself. The routine runs only when
+  // the Run the routine button is pressed (popup or dashboard); the launch
+  // run, the schedule and the catch-up pass are all off, and opening the popup
+  // does not read the stats.
   startupEnabled: false,           // Master switch for the whole startup
                                    // sequence (the browser-launch run)
   startupOncePerDay: true,         // Skip the startup routine if it already
@@ -62,7 +63,7 @@ export const DEFAULT_SETTINGS = {
   // through the configured moment still runs the owed round the next time
   // Chrome is up — no silent lost day. The once-per-day gate keeps it from
   // doubling up with the launch routine.
-  scheduledRunEnabled: true,
+  scheduledRunEnabled: false,
   scheduledRunTime: "09:00",       // local "HH:MM", 24-hour
 
   // The catch-up pass (Honeycomb): at catchUpTime, if today's read shows any
@@ -71,7 +72,7 @@ export const DEFAULT_SETTINGS = {
   // that is already complete costs one stats read and nothing else. This is
   // what recovers new Earn tiles that appear mid-day, a daily set that failed
   // to credit, or a morning run the browser slept through.
-  catchUpPassEnabled: true,
+  catchUpPassEnabled: false,
   catchUpTime: "20:30",            // local "HH:MM", 24-hour
 
   // The evening nudge (5.1.0): one notification late in the day naming what is
@@ -106,7 +107,7 @@ export const DEFAULT_SETTINGS = {
                                    // color ("#f472b6") overriding the theme's
                                    // --brand. Empty = the theme's own.
   appearance: "auto",              // light/dark/auto (ADR-003)
-  refreshStatsOnPopupOpen: true,   // Re-read the stats + redeem on popup open
+  refreshStatsOnPopupOpen: false,  // Re-read the stats + redeem on popup open
   popupHeight: 0,                  // 240–600, Chromium's cap; 0 = auto fold
   hiddenSections: [],              // Cards hidden via the layout editor's ×
   developerOptionsEnabled: false,  // The Activity card's gate

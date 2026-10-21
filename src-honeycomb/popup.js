@@ -327,7 +327,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     input.checked = effectiveSettings[key] ?? true;
   });
   animToggle.checked = effectiveSettings.animationsEnabled ?? true;
-  refreshOnOpenToggle.checked = effectiveSettings.refreshStatsOnPopupOpen ?? true;
+  refreshOnOpenToggle.checked = effectiveSettings.refreshStatsOnPopupOpen ?? false;
   devToggle.checked = effectiveSettings.developerOptionsEnabled ?? false;
   experimentalToggle.checked = effectiveSettings.experimentalFeatures ?? false;
   restockWatcherToggle.checked = effectiveSettings.restockWatcherEnabled ?? false;
