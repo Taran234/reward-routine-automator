@@ -56,6 +56,9 @@ const REDEEM_QUERY = "overwatch coins digital code";
 // the result cards both render after "complete", and a search-triggered
 // navigation adds a full page load on top of the hydration wait.
 const REDEEM_HYDRATION_MS = 12000;
+// The landing-page read before any search: the card is there once the page
+// has hydrated, so a short wait is enough to know whether it is.
+const QUICK_READ_MS = 6000;
 
 export async function checkRedeemAvailability() {
   if (READ_RUN_GUARDS.redeem) {
@@ -100,41 +103,62 @@ export async function checkRedeemAvailability() {
       return;
     }
 
-    // Phase 1 — search. Resolves false when the page shows no search box,
-    // which is fine: the reader then scans the catalog page as-is. A rejection
-    // means the page navigated mid-script (the search trigger does a full
-    // navigation), which the load wait below absorbs the same way.
+    // Phase 0 — the landing page first. /redeem already lists the product in
+    // its Gift cards row (checked live 2026-10-21), so a short read there skips
+    // the whole search round trip. The old order searched first: the page has
+    // no search box, only a link to the shop's search view, and that detour is
+    // what made this watch slow and sometimes land on a page without the card.
+    let quick = null;
     try {
-      const [injection] = await chrome.scripting.executeScript({
+      const [first] = await chrome.scripting.executeScript({
         target: { tabId: redeemTab.id },
-        func: searchRedeemFor,
-        args: [REDEEM_QUERY, REDEEM_HYDRATION_MS]
+        func: readRedeemOptions,
+        args: [REDEEM_QUERY, QUICK_READ_MS]
       });
-      if (!(injection && injection.result === true)) {
-        console.log("Redeem watch: no search box on the page; reading the catalog as-is.");
-      }
+      quick = first && first.result;
     } catch (e) {
-      console.warn("Redeem search injection ended early:", e);
+      console.warn("Redeem quick read ended early:", e);
     }
+    const haveCards = !!(quick && Array.isArray(quick.list) && quick.list.length);
 
-    if (await stopped()) {
-      console.log("Redeem watch: stopped before the reader could run.");
-      return;
-    }
+    if (!haveCards) {
+      // Phase 1 — search. Resolves false when the page shows no search box,
+      // which is fine: the reader then scans the catalog page as-is. A rejection
+      // means the page navigated mid-script (the search trigger does a full
+      // navigation), which the load wait below absorbs the same way.
+      try {
+        const [injection] = await chrome.scripting.executeScript({
+          target: { tabId: redeemTab.id },
+          func: searchRedeemFor,
+          args: [REDEEM_QUERY, REDEEM_HYDRATION_MS]
+        });
+        if (!(injection && injection.result === true)) {
+          console.log("Redeem watch: no search box on the page; reading the catalog as-is.");
+        }
+      } catch (e) {
+        console.warn("Redeem search injection ended early:", e);
+      }
 
-    // Let a search-triggered navigation start before waiting it out; a
-    // same-document re-render just costs this settle.
-    await sleep(1500);
-    const resultsLoaded = await waitForTabComplete(redeemTab.id, 15000);
-    if (!resultsLoaded) {
-      console.warn("Redeem watch: results page did not finish loading in time.");
-    }
+      if (await stopped()) {
+        console.log("Redeem watch: stopped before the reader could run.");
+        return;
+      }
 
-    // Stop checkpoint after the results load: the reader is the part a stop is
-    // meant to prevent.
-    if (await stopped()) {
-      console.log("Redeem watch: stopped before the reader could run.");
-      return;
+      // Let a search-triggered navigation start before waiting it out; a
+      // same-document re-render just costs this settle.
+      await sleep(1500);
+      const resultsLoaded = await waitForTabComplete(redeemTab.id, 15000);
+      if (!resultsLoaded) {
+        console.warn("Redeem watch: results page did not finish loading in time.");
+      }
+
+      // Stop checkpoint after the results load: the reader is the part a stop is
+      // meant to prevent.
+      if (await stopped()) {
+        console.log("Redeem watch: stopped before the reader could run.");
+        return;
+      }
+
     }
 
     // Phase 2 — read. The result outlives its try block: phase 3 needs it to
@@ -143,12 +167,15 @@ export async function checkRedeemAvailability() {
     let options = null;
     let optionsDump = "";
     try {
-      const [injection] = await chrome.scripting.executeScript({
-        target: { tabId: redeemTab.id },
-        func: readRedeemOptions,
-        args: [REDEEM_QUERY, REDEEM_HYDRATION_MS]
-      });
-      const read = injection && injection.result;
+      let read = quick;
+      if (!haveCards) {
+        const [injection] = await chrome.scripting.executeScript({
+          target: { tabId: redeemTab.id },
+          func: readRedeemOptions,
+          args: [REDEEM_QUERY, REDEEM_HYDRATION_MS]
+        });
+        read = injection && injection.result;
+      }
       options = read && read.list;
       optionsDump = (read && read.dump) || "";
 
