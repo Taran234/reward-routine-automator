@@ -75,8 +75,56 @@ function renderChart(history, today) {
   host.appendChild(svg);
 }
 
+function renderOffers(record) {
+  const list = $("offers");
+  list.textContent = "";
+  const offers = record && Array.isArray(record.offers) ? record.offers : [];
+  if (!offers.length) {
+    $("offersNote").textContent = "No offer list yet. Press Refresh stats.";
+    return;
+  }
+  const fresh = new Set(record.freshKeys || []);
+  const hiddenCount = offers.filter(o => !o.visible && !o.done).length;
+  $("offersNote").textContent =
+    `${offers.length} offers read ${new Date(record.at).toLocaleTimeString()}` +
+    (hiddenCount ? `, ${hiddenCount} the page is not showing.` : ".");
+  for (const o of offers) {
+    const li = document.createElement("li");
+    if (o.done) li.className = "done";
+    const title = document.createElement("span");
+    title.className = "t";
+    title.textContent = o.title;
+    li.appendChild(title);
+    const badge = (text, cls) => {
+      const s = document.createElement("span");
+      s.className = "pill " + cls;
+      s.textContent = text;
+      li.appendChild(s);
+    };
+    if (fresh.has(o.key)) badge("new", "new");
+    if (!o.visible && !o.done) badge("not on the page", "hidden");
+    if (o.locked) badge("locked", "idle");
+    if (o.points != null) {
+      const p = document.createElement("span");
+      p.className = "pts";
+      p.textContent = `${o.points} pts`;
+      li.appendChild(p);
+    }
+    if (typeof o.url === "string" && o.url.startsWith("https://")) {
+      const a = document.createElement("a");
+      a.href = o.url;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent = "Open";
+      li.appendChild(a);
+    }
+    list.appendChild(li);
+  }
+}
+
 async function render() {
   const local = await chrome.storage.local.get(null);
+  renderOffers(local.lastOffers);
   const settings = await getSettings();
   const now = new Date();
   const today = localDayKey(now);

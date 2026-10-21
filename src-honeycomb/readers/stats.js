@@ -27,6 +27,8 @@ import { parsePoints, recordDay, goalState, goalMessage } from "../pure/history.
 import { notify, clearNotification } from "../lib/notify.js";
 import { readRewardsStats } from "../injections/stats-read.js";
 import { readCouponCount } from "../injections/coupons.js";
+import { readOfferFeed } from "../injections/offers-read.js";
+import { diffOffers, rankOffers, newOffersMessage } from "../pure/offers.js";
 import { REWARDS_DASHBOARD, REWARDS_EARN } from "./rewards-section.js";
 
 const LAST_STATS = "lastStats";
@@ -98,6 +100,39 @@ export async function checkGoalAlert(balance, history, settings) {
     goalMessage(state, balance, target),
     { id: GOAL_NOTIFICATION_ID }
   );
+}
+
+// The offers finder (rides the Earn tab the stats read already has open):
+// reads every offer the page's payload carries, flags the ones the UI is not
+// showing and the ones that appeared since the last read, and keeps the list
+// for the dashboard. The first read only sets the baseline. Never throws — a
+// convenience on top of a convenience.
+const LAST_OFFERS = "lastOffers";
+const SEEN_OFFERS = "seenOfferKeys";
+
+async function readOffers(tabId) {
+  try {
+    const [injection] = await chrome.scripting.executeScript({
+      target: { tabId },
+      func: readOfferFeed
+    });
+    const offers = injection && injection.result && injection.result.offers;
+    if (!Array.isArray(offers) || !offers.length) return;
+
+    const stored = await chrome.storage.local.get(SEEN_OFFERS);
+    const { seen, fresh } = diffOffers(stored[SEEN_OFFERS], offers);
+    const freshKeys = fresh.map(o => o.key);
+    await chrome.storage.local.set({
+      [SEEN_OFFERS]: seen,
+      [LAST_OFFERS]: { at: Date.now(), offers: rankOffers(offers, freshKeys), freshKeys }
+    });
+
+    const message = newOffersMessage(fresh);
+    if (message) notify("New Rewards offers", message);
+    console.log(`Offers: read ${offers.length}, ${fresh.length} new.`);
+  } catch (e) {
+    console.warn("Stats: the offers read ended early:", e);
+  }
 }
 
 export async function refreshStats() {
@@ -366,6 +401,8 @@ export async function refreshStats() {
         console.warn("Stats: the coupon count read ended early:", e);
       }
     }
+
+    if (earnRead) await readOffers(earnRead.tabId);
 
     // The Activity row's evidence (2026-09-05, user request — the redeem
     // row's pattern): every miss reports WHY, not just that, and carries the

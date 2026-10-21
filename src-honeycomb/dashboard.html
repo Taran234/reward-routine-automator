@@ -58,6 +58,15 @@
     dt { color: var(--muted); } dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
     dd.bad { color: var(--bad); }
     .empty { color: var(--muted); }
+    .offers { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+    .offers li { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
+                 padding: 6px 0; border-top: 1px solid var(--line); min-width: 0; }
+    .offers li:first-child { border-top: 0; }
+    .offers .t { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+    .offers li.done .t { color: var(--muted); text-decoration: line-through; }
+    .offers a { color: var(--accent); }
+    .offers .pts { font: 12px var(--mono); color: var(--muted); }
+    .pill.new { color: var(--accent); } .pill.hidden { color: var(--warn); }
   </style>
 </head>
 <body>
@@ -94,6 +103,12 @@
         <div class="k">Goal</div><div class="v" id="goal">–</div>
         <div class="bar"><i id="goalBar"></i></div><div class="n" id="goalNote">&nbsp;</div>
       </div>
+    </section>
+
+    <section class="panel" aria-labelledby="h-offers">
+      <h2 id="h-offers">Offers on your account</h2>
+      <div class="n" id="offersNote">Read from the Earn page on every stats refresh.</div>
+      <ul class="offers" id="offers"></ul>
     </section>
 
     <section class="panel" aria-labelledby="h-run">

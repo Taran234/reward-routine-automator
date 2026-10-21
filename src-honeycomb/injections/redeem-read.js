@@ -491,6 +491,35 @@ export function readRedeemVariants(timeoutMs) {
         }
       }
 
+      // 4. A single-amount page: the sku page today (checked live 2026-10-21)
+      //    sells ONE amount ("Overwatch Digital Code—1000 Coins") with no
+      //    picker at all — only a Redeem now button. The embedded item payload
+      //    still carries the amount (denominationTitle), its stock flag and
+      //    its own sku href, so report those. With no payload, the heading's
+      //    "N coins" plus the restocking note is the weaker fallback.
+      if (!variants.length) {
+        const stock = itemStock();
+        stock.forEach((item, label) => {
+          if (seen.has(label)) return;
+          seen.add(label);
+          variants.push(
+            item.href
+              ? { label, available: !item.disabled, href: item.href }
+              : { label, available: !item.disabled }
+          );
+        });
+        if (!variants.length) {
+          const heading = document.querySelector("main h1, main h2");
+          const amount = heading && textOf(heading).match(/(\d[\d.,]*)\s*coins?/i);
+          if (amount) {
+            variants.push({
+              label: `${amount[1]} coins`,
+              available: !restockingNoteVisible()
+            });
+          }
+        }
+      }
+
       return variants;
     }
 
