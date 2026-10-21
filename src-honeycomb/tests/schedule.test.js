@@ -146,3 +146,17 @@ test("scheduledDue's day key is the LOCAL day, matching localDayKey", () => {
     { due: true, day: "2026-09-07" }
   );
 });
+
+test("scheduledDue with a grace window skips a round the browser slept through", () => {
+  const base = { enabled: true, scheduledTime: "09:00", lastHandledDay: null };
+  const at = (h, m) => new Date(2026, 8, 6, h, m, 0);
+  // On the minute and inside the grace: due.
+  assert.equal(scheduledDue({ ...base, now: at(9, 0), graceMin: 20 }).due, true);
+  assert.equal(scheduledDue({ ...base, now: at(9, 20), graceMin: 20 }).due, true);
+  // Browser opened hours later: missed, nothing runs.
+  const late = scheduledDue({ ...base, now: at(11, 0), graceMin: 20 });
+  assert.equal(late.due, false);
+  assert.equal(late.reason, "missed");
+  // No grace given keeps the old catch-up behavior.
+  assert.equal(scheduledDue({ ...base, now: at(11, 0) }).due, true);
+});

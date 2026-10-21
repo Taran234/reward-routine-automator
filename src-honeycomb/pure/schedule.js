@@ -56,7 +56,12 @@ export function nextFireAt(timeOfDay, now = new Date()) {
 // `lastHandledDay` is the once-a-day latch (localDayKey of the last round
 // already handled today, fired or visibly skipped), so repeated heartbeats
 // after the moment don't re-run the round.
-export function scheduledDue({ enabled, scheduledTime, lastHandledDay, now = new Date() }) {
+//
+// `graceMin` (optional) turns off the owed-round recovery: a round more than
+// this many minutes past its moment is "missed" and does not fire. That is how
+// opening the browser late stops starting the routine — it only runs when the
+// browser was already up at (about) the scheduled time.
+export function scheduledDue({ enabled, scheduledTime, lastHandledDay, now = new Date(), graceMin = null }) {
   if (!enabled) return { due: false, reason: "disabled" };
   const minutes = parseTimeOfDay(scheduledTime);
   // An unparseable time is a broken clock, never a fire loop.
@@ -77,5 +82,8 @@ export function scheduledDue({ enabled, scheduledTime, lastHandledDay, now = new
   );
   // Not there yet today — the alarm/heartbeat will ask again after the moment.
   if (now.getTime() < moment.getTime()) return { due: false, reason: "early" };
+  if (Number.isFinite(graceMin) && now.getTime() - moment.getTime() > graceMin * 60000) {
+    return { due: false, reason: "missed" };
+  }
   return { due: true, day: today };
 }

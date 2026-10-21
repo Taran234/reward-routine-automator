@@ -85,7 +85,25 @@ let scheduledRunning = false;
 // key by key) and clear anything run-shaped the previous version left —
 // which is the whole run-state document, in ONE remove. Nothing that must
 // survive (lastRoutineDay, the log rows, the query history) lives in it.
+// A scheduled or catch-up round only fires while the browser is already up at
+// its time (plus this grace). Opening the browser later never starts one, so
+// nothing runs just because Chrome was opened.
+const LATE_START_GRACE_MIN = 20;
+
+// One-time settings migration: the launch-time run is off for good, even where
+// an older stored settings blob still says on.
+async function applyMigrations() {
+  const { migrationNoLaunchRun } = await chrome.storage.local.get("migrationNoLaunchRun");
+  if (migrationNoLaunchRun) return;
+  const { settings } = await chrome.storage.sync.get("settings");
+  await chrome.storage.sync.set({
+    settings: { ...DEFAULT_SETTINGS, ...(settings || {}), startupEnabled: false }
+  });
+  await chrome.storage.local.set({ migrationNoLaunchRun: true });
+}
+
 chrome.runtime.onInstalled.addListener(async () => {
+  await applyMigrations();
   const existing = await chrome.storage.sync.get(null);
 
   await chrome.storage.sync.set({
@@ -103,6 +121,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // The startup sequence: whatever order settings.startupOrder holds.
 chrome.runtime.onStartup.addListener(async () => {
+  await applyMigrations();
   // Both schedules persist across browser restarts, but a browser closed
   // mid-toggle (or an alarm Chrome dropped) gets re-synced here — the stored
   // settings are the truth either way.
@@ -219,7 +238,8 @@ async function runScheduledIfDue(source) {
     enabled: settings.scheduledRunEnabled,
     scheduledTime: settings.scheduledRunTime,
     lastHandledDay: lastHandledDay ?? null,
-    now: new Date()
+    now: new Date(),
+    graceMin: LATE_START_GRACE_MIN
   });
 
   if (!decision.due) {
@@ -342,7 +362,8 @@ async function runNudgeIfDue() {
     enabled: nudgeEnabled(settings),
     scheduledTime: nudgeTime(settings),
     lastHandledDay: lastHandledDay ?? null,
-    now
+    now,
+    graceMin: LATE_START_GRACE_MIN
   });
   if (!decision.due) return;
 

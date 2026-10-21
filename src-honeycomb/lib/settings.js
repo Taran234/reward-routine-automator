@@ -6,10 +6,11 @@
 // worker must keep treating them as opaque booleans/strings it stores but
 // never interprets.
 export const DEFAULT_SETTINGS = {
-  // Honeycomb defaults are tuned for an unattended machine: the routine runs
-  // on browser start and on a schedule, with no confirm dialog to hang on.
-  startupEnabled: true,            // Master switch for the whole startup
-                                   // sequence
+  // Honeycomb defaults: the routine runs on its schedule only. Opening the
+  // browser starts nothing (the user turned the launch run off); the Run
+  // button on the popup and dashboard is always there.
+  startupEnabled: false,           // Master switch for the whole startup
+                                   // sequence (the browser-launch run)
   startupOncePerDay: true,         // Skip the startup routine if it already
                                    // completed today
   confirmBeforeRoutine: false,     // Ask before the startup routine starts
