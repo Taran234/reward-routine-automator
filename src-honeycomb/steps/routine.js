@@ -13,7 +13,7 @@ import { sleep } from "../lib/delays.js";
 import { closeTabs } from "../lib/tabs.js";
 import { setLastTabAction, setLastRewards, reportImageSearch } from "../lib/log.js";
 import { slotMissingDefaults } from "../pure/orders.js";
-import { STEP_DONE_CHECKS, statsAreCurrent, stepSkipReason } from "../pure/verdicts.js";
+import { STEP_DONE_CHECKS, statsAreCurrent, stepSkipReason, dayRemainder } from "../pure/verdicts.js";
 import { refreshStats, checkRedeemAvailability } from "./reads.js";
 import { startSearchBatch } from "./search.js";
 import { runStartupClaim } from "../readers/claim.js";
@@ -86,6 +86,33 @@ export function normalizeStartupOrder(order) {
 async function runStartupReads() {
   await refreshStats();
   await checkRedeemAvailability();
+}
+
+// ---------- The run report ----------
+
+// One line per step of the last routine (ran, skipped and why, failed and
+// why, handed to the search batch), kept in storage so the dashboard can show
+// what a run actually did. Reset when a fresh routine starts; a second pass
+// appends to the same list.
+const ROUTINE_REPORT = "routineReport";
+const STEP_LABELS = {
+  stats: "Stats",
+  claim: "Claim",
+  dailySet: "Daily set",
+  keepEarning: "Keep earning",
+  search: "Search",
+  imageSearch: "Image search"
+};
+
+async function noteStep(id, outcome, ok) {
+  try {
+    const { [ROUTINE_REPORT]: list } = await chrome.storage.local.get(ROUTINE_REPORT);
+    const rows = Array.isArray(list) ? list : [];
+    rows.push({ id, label: STEP_LABELS[id] || id, outcome, ok, at: Date.now() });
+    await chrome.storage.local.set({ [ROUTINE_REPORT]: rows.slice(-30) });
+  } catch (e) {
+    // A report row is never worth failing a step over.
+  }
 }
 
 // ---------- Skip-when-done ----------
@@ -354,8 +381,9 @@ export async function runStartupSequence({ manual = false, scheduled = false } =
   // day is captured here so endRoutine() can credit THAT day, even if the
   // sequence finishes after midnight in a later worker instance.
   await updateRunState(state => {
-    state.routine = { startDay: localDayKey(), pendingSteps: [], pendingTabs: [], skipped: [] };
+    state.routine = { startDay: localDayKey(), pendingSteps: [], pendingTabs: [], skipped: [], pass: 1 };
   });
+  await chrome.storage.local.set({ [ROUTINE_REPORT]: [] });
 
   // A fresh read before the steps: the skip-when-done verdicts below must
   // judge the dashboard as it is NOW, not as an older same-day read left it —
@@ -383,6 +411,7 @@ export async function runStartupSequence({ manual = false, scheduled = false } =
     if (skipReason) {
       console.log(`Startup: skipping "${id}" — ${skipReason}.`);
       await reportSkippedStep(id, skipReason);
+      await noteStep(id, `skipped — ${skipReason}`, null);
       continue;
     }
 
@@ -397,10 +426,12 @@ export async function runStartupSequence({ manual = false, scheduled = false } =
             if (state.routine) state.routine.pendingSteps = rest;
           });
         }
+        await noteStep(id, "started — the search batch runs in the background", true);
         await startSearchBatch();
         return;
       } catch (e) {
         console.warn("Startup: web search batch failed to start:", e);
+        await noteStep(id, `failed to start — ${e && e.message}`, false);
         await updateRunState(state => {
           if (state.routine) state.routine.pendingSteps = [];
         });
@@ -410,8 +441,10 @@ export async function runStartupSequence({ manual = false, scheduled = false } =
 
     try {
       await STARTUP_STEPS[id].run();
+      await noteStep(id, "ran", true);
     } catch (e) {
       console.warn(`Startup: step "${id}" failed:`, e);
+      await noteStep(id, `failed — ${e && e.message}`, false);
     }
   }
 
@@ -468,13 +501,16 @@ export async function runPendingStartupSteps() {
     if (skipReason) {
       console.log(`Startup: skipping "${id}" — ${skipReason}.`);
       await reportSkippedStep(id, skipReason);
+      await noteStep(id, `skipped — ${skipReason}`, null);
       continue;
     }
 
     try {
       await step.run();
+      await noteStep(id, "ran", true);
     } catch (e) {
       console.warn(`Startup: step "${id}" failed:`, e);
+      await noteStep(id, `failed — ${e && e.message}`, false);
     }
   }
 
@@ -487,7 +523,51 @@ export async function runPendingStartupSteps() {
 // stashed tabs are all closed at once; a no-op when no routine ran, so callers
 // don't need to care which mode they're in. A routine that genuinely finished
 // also marks the day it started as done for the once-per-day gate.
+// The verify pass: before a routine is called finished, re-read the stats and,
+// if a step that can still earn is still open, run just those steps once more
+// (one repeat at most). The search step is left to its own probe loop — this
+// dashboard has no readable search cap, so "search still open" never goes
+// away and would force a pointless pass — and Keep earning is not repeated
+// (tiles that only count when completed would just be opened again).
+const MAX_PASSES = 2;
+const REPEATABLE = ["claim", "dailySet", "imageSearch"];
+
+async function repeatIfStillOpen() {
+  const state = await readRunState();
+  const routine = state.routine;
+  if (!routine || (routine.pass || 1) >= MAX_PASSES) return false;
+
+  const myEpoch = await currentStopEpoch();
+  await refreshStats();
+  if ((await currentStopEpoch()) !== myEpoch) return false;
+
+  const { [LAST_STATS]: stats } = await chrome.storage.local.get(LAST_STATS);
+  const remainder = dayRemainder(stats);
+  if (!remainder) return false;
+
+  const settings = await getSettings();
+  const again = remainder.left
+    .map(row => row.id)
+    .filter(id => REPEATABLE.includes(id) && settings[STARTUP_STEPS[id].enabledKey]);
+  if (!again.length) return false;
+
+  await updateRunState(s => {
+    if (s.routine) {
+      s.routine.pass = (s.routine.pass || 1) + 1;
+      s.routine.pendingSteps = again;
+    }
+  });
+  await setLastTabAction(
+    `Routine — ${again.map(id => STEP_LABELS[id]).join(", ")} still open, running a second pass`,
+    null
+  );
+  await runPendingStartupSteps();
+  return true;
+}
+
 export async function endRoutine() {
+  if (await repeatIfStillOpen()) return;
+
   // Read the routine and clear it as ONE step — a stop landing between the
   // read and the clear would otherwise let a stopped routine sweep its
   // stashed tabs.

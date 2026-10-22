@@ -122,9 +122,35 @@ function renderOffers(record) {
   }
 }
 
+function renderReport(rows) {
+  const list = $("report");
+  list.textContent = "";
+  const items = Array.isArray(rows) ? rows : [];
+  if (!items.length) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = "No run yet.";
+    list.appendChild(li);
+    return;
+  }
+  for (const row of items) {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "t";
+    name.textContent = row.label || row.id;
+    li.appendChild(name);
+    const badge = document.createElement("span");
+    badge.className = "pill " + (row.ok === false ? "bad" : row.ok === true ? "ok" : "idle");
+    badge.textContent = row.outcome;
+    li.appendChild(badge);
+    list.appendChild(li);
+  }
+}
+
 async function render() {
   const local = await chrome.storage.local.get(null);
   renderOffers(local.lastOffers);
+  renderReport(local.routineReport);
   const settings = await getSettings();
   const now = new Date();
   const today = localDayKey(now);

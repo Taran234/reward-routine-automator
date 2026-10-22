@@ -21,7 +21,7 @@
 //     rightSizeRun: null | { round, pair, freshAt },   // the verify loop,
 //                                           // spans batches so it sits at
 //                                           // top level, not inside batch
-//     routine: null | { startDay, pendingSteps, pendingTabs, skipped },
+//     routine: null | { startDay, pendingSteps, pendingTabs, skipped, pass },
 //     captures: { capturing: [], opened: { [stepId]: number[] } }
 //   }
 //
@@ -91,7 +91,8 @@ export async function readRunState() {
           pendingTabs: Array.isArray(stored.routine.pendingTabs)
             ? stored.routine.pendingTabs.filter(id => typeof id === "number")
             : [],
-          skipped: Array.isArray(stored.routine.skipped) ? [...stored.routine.skipped] : []
+          skipped: Array.isArray(stored.routine.skipped) ? [...stored.routine.skipped] : [],
+          pass: Number(stored.routine.pass) >= 1 ? Number(stored.routine.pass) : 1
         }
       : null,
     captures: normalizeCaptures(stored.captures)
