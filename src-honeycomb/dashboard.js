@@ -168,7 +168,9 @@ async function render() {
   if (stats && stats.at) {
     const ageMin = Math.round((Date.now() - stats.at) / 60000);
     const fromToday = localDayKey(new Date(stats.at)) === today;
-    $("updated").textContent = `Stats read ${ageMin} min ago${fromToday ? "" : " (not from today)"}`;
+    $("updated").textContent =
+      `Stats read ${ageMin} min ago${fromToday ? "" : " (not from today)"}` +
+      (stats.estimated ? ", live estimate (+3 per search) until the next read" : "");
   }
 
   $("balance").textContent = show(stats && stats.availablePoints);

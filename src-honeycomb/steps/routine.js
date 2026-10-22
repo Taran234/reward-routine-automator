@@ -535,11 +535,14 @@ const REPEATABLE = ["claim", "dailySet", "imageSearch"];
 async function repeatIfStillOpen() {
   const state = await readRunState();
   const routine = state.routine;
-  if (!routine || (routine.pass || 1) >= MAX_PASSES) return false;
+  if (!routine) return false;
 
+  // The closing read, always: the dashboard, the popup and the finish page
+  // show real numbers once the routine is over, not the per-search estimates.
   const myEpoch = await currentStopEpoch();
   await refreshStats();
   if ((await currentStopEpoch()) !== myEpoch) return false;
+  if ((routine.pass || 1) >= MAX_PASSES) return false;
 
   const { [LAST_STATS]: stats } = await chrome.storage.local.get(LAST_STATS);
   const remainder = dayRemainder(stats);

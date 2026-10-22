@@ -25,6 +25,9 @@ import {
   statsAreCurrent,
   POINTS_PER_SEARCH
 } from "../pure/verdicts.js";
+import { bumpForSearch } from "../pure/estimate.js";
+import { parsePoints, recordDay } from "../pure/history.js";
+import { localDayKey } from "../lib/day.js";
 import { awaitedQuery, startQueryPrefetch } from "../queries/chain.js";
 import { performHumanTypedSearchOnBing } from "../injections/typed-search.js";
 import { refreshStats } from "./reads.js";
@@ -139,6 +142,30 @@ export async function startSearchBatch() {
   tick(); // deliberately not awaited: the batch outlives this call
 }
 
+// After each search the stored numbers move by the known points per search, so
+// the popup and dashboard climb with the batch instead of waiting for the next
+// read (which replaces them). Today's reads only — yesterday's numbers are not
+// a base to add to. A storage hiccup never costs a search.
+async function bumpStatsForSearch() {
+  try {
+    const { [LAST_STATS]: stats, pointsHistory } = await chrome.storage.local.get([
+      LAST_STATS,
+      "pointsHistory"
+    ]);
+    if (!statsAreCurrent(stats)) return;
+    const next = bumpForSearch(stats);
+    await chrome.storage.local.set({ [LAST_STATS]: next });
+    const points = parsePoints(next.availablePoints);
+    if (points != null) {
+      await chrome.storage.local.set({
+        pointsHistory: recordDay(pointsHistory, localDayKey(), points)
+      });
+    }
+  } catch (e) {
+    console.warn("Search: the live stats estimate failed:", e);
+  }
+}
+
 // One beat of the loop: run one search, schedule the next.
 let tickInFlight = false;
 
@@ -203,6 +230,7 @@ export async function tick() {
         args: [query]
       });
       busyMs = Number(injection && injection.result) || 0;
+      if (injection) await bumpStatsForSearch();
     } catch (e) {
       console.warn("Search injection failed:", e);
     }
